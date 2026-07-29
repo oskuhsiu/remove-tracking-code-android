@@ -2,13 +2,12 @@
 <!--
     AccessibilityService configuration for ClipboardWatcherService.
 
-    accessibilityEventTypes="typeNone" — we subscribe to zero events; the service
-    exists solely to obtain background clipboard read access.
+    We subscribe to zero events in ClipboardWatcherService.onServiceConnected();
+    the service exists solely to obtain background clipboard read access.
     canRetrieveWindowContent="false"   — explicitly opt out of window content scanning.
 -->
 <accessibility-service
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeNone"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:canRetrieveWindowContent="false"
     android:description="@string/a11y_service_description"

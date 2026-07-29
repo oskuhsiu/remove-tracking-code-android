@@ -46,11 +46,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val url = UrlExtractor.firstUrl(text) ?: return
         val removeRef = settings.value?.removeReferralMarketing ?: true
         val historyEnabled = settings.value?.historyEnabled ?: false
-        val cleaner = appCtx.cleanerFor(removeRef)
-        val result = cleaner.clean(url)
-        _lastResult.value = result
-        if (historyEnabled && !result.isBlocked) {
-            viewModelScope.launch { appCtx.historyRepo.append(result.original, result.cleaned) }
+        viewModelScope.launch {
+            val result = appCtx.cleanerFor(removeRef).clean(url)
+            _lastResult.value = result
+            if (historyEnabled && !result.isBlocked) {
+                appCtx.historyRepo.append(result.original, result.cleaned)
+            }
         }
     }
 

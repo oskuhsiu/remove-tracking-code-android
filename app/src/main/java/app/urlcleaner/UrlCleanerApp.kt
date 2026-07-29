@@ -2,7 +2,9 @@ package app.urlcleaner
 
 import android.app.Application
 import app.urlcleaner.cleaner.RuleSet
+import app.urlcleaner.cleaner.ThreadsShareUrlResolver
 import app.urlcleaner.cleaner.UrlCleaner
+import app.urlcleaner.cleaner.UrlCleaningService
 import app.urlcleaner.data.HistoryRepository
 import app.urlcleaner.data.RulesRepository
 import app.urlcleaner.data.SettingsRepository
@@ -21,6 +23,7 @@ class UrlCleanerApp : Application() {
         private set
 
     @Volatile var currentRuleSet: RuleSet = RuleSet(emptyList())
+    private val redirectResolver = ThreadsShareUrlResolver()
 
     override fun onCreate() {
         super.onCreate()
@@ -29,8 +32,11 @@ class UrlCleanerApp : Application() {
         rulesRepo = RulesRepository(this)
     }
 
-    fun cleanerFor(removeReferralMarketing: Boolean): UrlCleaner =
-        UrlCleaner(currentRuleSet, removeReferralMarketing)
+    fun cleanerFor(removeReferralMarketing: Boolean): UrlCleaningService =
+        UrlCleaningService(
+            UrlCleaner(currentRuleSet, removeReferralMarketing),
+            redirectResolver,
+        )
 }
 
 val android.content.Context.app: UrlCleanerApp

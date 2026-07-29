@@ -78,14 +78,17 @@ class ClipboardWatcherService : AccessibilityService() {
         if (text == lastWritten) return // ignore our own writes
 
         val url = UrlExtractor.firstUrl(text) ?: return
-        val cleaner = applicationContext.app.cleanerFor(settings.removeReferralMarketing)
-        val result = cleaner.clean(url)
-        if (!result.wasChanged || result.isBlocked) return
+        scope.launch {
+            val result = applicationContext.app
+                .cleanerFor(settings.removeReferralMarketing)
+                .clean(url)
+            if (!result.wasChanged || result.isBlocked) return@launch
 
-        when (mode) {
-            ClipboardWatchMode.AUTO_CLEAN -> performClean(result.cleaned)
-            ClipboardWatchMode.ASK -> showBubble(result.cleaned, settings)
-            ClipboardWatchMode.OFF -> Unit
+            when (mode) {
+                ClipboardWatchMode.AUTO_CLEAN -> performClean(result.cleaned)
+                ClipboardWatchMode.ASK -> showBubble(result.cleaned, settings)
+                ClipboardWatchMode.OFF -> Unit
+            }
         }
     }
 
