@@ -15,7 +15,7 @@ import java.security.MessageDigest
  *   1. app-private cache (`filesDir/rules.json`) if it exists
  *   2. bundled asset (`assets/clearurls-rules.json`)
  * Then merges a small [SUPPLEMENTAL_ASSET] on top so we can ship rules for sites
- * ClearURLs doesn't cover yet (e.g. threads.com). Supplemental rules are never
+ * ClearURLs doesn't cover yet (e.g. newer social share tokens). Supplemental rules are never
  * overwritten by network updates.
  *
  * And updates the cache on demand via [updateFromNetwork].

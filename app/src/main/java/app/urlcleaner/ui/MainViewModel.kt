@@ -36,8 +36,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
-            val loaded = appCtx.rulesRepo.load()
-            appCtx.currentRuleSet = loaded.ruleSet
+            appCtx.loadRules()
             appCtx.historyRepo.load()
         }
     }
@@ -89,7 +88,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val result = appCtx.rulesRepo.updateFromNetwork()
             when (result) {
                 is RulesRepository.UpdateResult.Success -> {
-                    appCtx.currentRuleSet = appCtx.rulesRepo.load().ruleSet
+                    appCtx.loadRules(forceReload = true)
                     appCtx.settingsRepo.setRulesMeta(result.version, System.currentTimeMillis())
                     _updateStatus.value = "已更新：${result.version} (${result.bytes} B)"
                 }

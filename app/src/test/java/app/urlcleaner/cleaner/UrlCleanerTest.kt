@@ -53,6 +53,81 @@ class UrlCleanerTest {
         assertTrue(r.cleaned.startsWith("https://x.com/someone/status/1234567890"))
     }
 
+    @Test fun `cleans reported x share after previous filtering`() {
+        val r = cleaner.clean("https://x.com/zenok__/status/2113589461628117389?a=siAS4aBSnDtBCzOOr9U&s=19")
+        assertEquals("https://x.com/zenok__/status/2113589461628117389", r.cleaned)
+        assertEquals(2, r.paramsRemoved)
+    }
+
+    @Test fun `cleans reported instagram reel after previous filtering`() {
+        val r = cleaner.clean("https://www.instagram.com/reel/Deny7rGSsB3/?dlrf=bDRwZmVnMWE0NnU0")
+        assertEquals("https://www.instagram.com/reel/Deny7rGSsB3/", r.cleaned)
+        assertEquals(1, r.paramsRemoved)
+    }
+
+    @Test fun `cleans newer instagram share tokens and preserves content selection`() {
+        val url = "https://www.instagram.com/p/ABC123/?igsh=old&igsi=1&stkn=2&mdxt=3&cplk=4&obrf=5&vrfl=6&rpxt=7&dlrf=8&ig_rid=9&click_source=share&si=10&img_index=3&comment_id=123&open_comments=1&story_media_id=456&hl=zh-tw#comments"
+        val expected = "https://www.instagram.com/p/ABC123/?img_index=3&comment_id=123&open_comments=1&story_media_id=456&hl=zh-tw#comments"
+        assertEquals(expected, cleaner.clean(url).cleaned)
+    }
+
+    @Test fun `cleans new x share token across status hosts and paths`() {
+        listOf(
+            "https://x.com/user/status/123",
+            "https://mobile.twitter.com/user/status/123/photo/1",
+            "https://www.x.com/i/web/status/123",
+            "https://twitter.com/i/status/123",
+        ).forEach { base ->
+            val r = cleaner.clean("$base?a=token&s=19&t=old&lang=zh-tw#photo")
+            assertEquals(base, "$base?lang=zh-tw#photo", r.cleaned)
+            assertEquals(3, r.paramsRemoved)
+        }
+    }
+
+    @Test fun `new share rules also work with an older upstream cache`() {
+        val supplemental = RulesParser.parse(File("src/main/assets/supplemental-rules.json").readText())
+        val olderCacheCleaner = UrlCleaner(supplemental)
+        assertEquals(
+            "https://x.com/zenok__/status/2113589461628117389",
+            olderCacheCleaner.clean("https://x.com/zenok__/status/2113589461628117389?a=share&s=19&t=old").cleaned,
+        )
+        assertEquals(
+            "https://www.instagram.com/reel/Deny7rGSsB3/",
+            olderCacheCleaner.clean("https://www.instagram.com/reel/Deny7rGSsB3/?igsh=old&dlrf=new&rpxt=next").cleaned,
+        )
+    }
+
+    @Test fun `new tracking names remain untouched on unrelated domains`() {
+        listOf(
+            "https://example.com/user/status/123?a=required&dlrf=value&rpxt=value",
+            "https://x.com.example.org/user/status/123?a=required",
+            "https://instagram.com.example.org/p/ABC/?dlrf=required",
+            "https://x.com/search?q=kotlin&f=live&a=required",
+            "https://www.tiktok.com/search?q=kotlin&sec_user_id=required",
+            "https://www.reddit.com/search?q=kotlin&entry_point=required",
+            "https://open.spotify.com.example.org/track/123?pi=required",
+            "https://youtube.com.example.org/watch?v=abc&source_ve_path=required",
+        ).forEach { url -> assertEquals(url, cleaner.clean(url).cleaned) }
+    }
+
+    @Test fun `cleans additional social share trackers while keeping functional parameters`() {
+        val cases = listOf(
+            "https://www.tiktok.com/@user/video/123?is_copy_url=1&is_from_webapp=1&sender_device=pc&sec_user_id=share&share_link_id=id&share_app_id=1&share_author_id=2&share_region=TW&social_share_type=4&trackParams=x&ug_btm=y&web_id=z&tt_from=copy&lang=zh-Hant" to
+                "https://www.tiktok.com/@user/video/123?lang=zh-Hant",
+            "https://open.spotify.com/track/123?si=share&pi=phone&sp_cid=campaign&dlsi=token&context=spotify%3Aplaylist%3A456" to
+                "https://open.spotify.com/track/123?context=spotify%3Aplaylist%3A456",
+            "https://www.reddit.com/r/kotlin/comments/123/title/?entry_point=share&target_user=abc&post_index=1&post_fullname=t3_123&sort=new" to
+                "https://www.reddit.com/r/kotlin/comments/123/title/?sort=new",
+            "https://www.youtube.com/watch?v=abc&t=90&list=playlist&index=2&embeds_referring_euri=origin&embeds_referring_origin=source&source_ve_path=share" to
+                "https://www.youtube.com/watch?v=abc&t=90&list=playlist&index=2",
+        )
+        cases.forEach { (url, expected) ->
+            val r = cleaner.clean(url)
+            assertEquals(url, expected, r.cleaned)
+            assertEquals("cleaning twice must be stable: $url", expected, cleaner.clean(r.cleaned).cleaned)
+        }
+    }
+
     @Test fun `unwraps google search redirect`() {
         val r = cleaner.clean("https://www.google.com/url?q=https%3A%2F%2Fexample.com%2Farticle&sa=U&ved=xyz")
         assertTrue("got ${r.cleaned}", r.cleaned.startsWith("https://example.com/article"))
@@ -96,6 +171,50 @@ class UrlCleanerTest {
         listOf("gclid", "fbclid", "mc_cid", "_hsenc").forEach {
             assertFalse("$it should be gone from ${r.cleaned}", r.cleaned.contains("$it="))
         }
+    }
+
+    @Test fun `strips encoded tracking keys without rewriting kept parameters`() {
+        val r = cleaner.clean("https://example.com/a?%75tm_source=share&%66bclid=token&q=a%2Bb+c&filter%5B0%5D=one%26two#section")
+        assertEquals("https://example.com/a?q=a%2Bb+c&filter%5B0%5D=one%26two#section", r.cleaned)
+        assertEquals(2, r.paramsRemoved)
+    }
+
+    @Test fun `preserves malformed query escapes while removing tracking`() {
+        val r = cleaner.clean("https://example.com/a?bad%ZZ=value%ZZ&utm_source=share")
+        assertEquals("https://example.com/a?bad%ZZ=value%ZZ", r.cleaned)
+    }
+
+    @Test fun `does not treat fragment query as tracking parameters`() {
+        val url = "https://example.com/#/search?utm_source=route&keep=1"
+        val r = cleaner.clean(url)
+        assertEquals(url, r.cleaned)
+        assertFalse(r.wasChanged)
+    }
+
+    @Test fun `preserves fragment query bytes after removing real tracking`() {
+        val r = cleaner.clean("https://example.com/?utm_source=share#/search?&q=one&&two&")
+        assertEquals("https://example.com/#/search?&q=one&&two&", r.cleaned)
+    }
+
+    @Test fun `decodes keys once and keeps duplicates and tracking text in values`() {
+        val r = cleaner.clean("https://example.com/?utm_source=one&%75tm_source=two&q=utm_source%3Dkept&q=second&%2575tm_source=keep")
+        assertEquals("https://example.com/?q=utm_source%3Dkept&q=second&%2575tm_source=keep", r.cleaned)
+        assertEquals(2, r.paramsRemoved)
+    }
+
+    @Test fun `query cleanup preserves literal question marks and path separators`() {
+        val r = cleaner.clean("https://example.com/path&&part?q=why?&utm_source=share")
+        assertEquals("https://example.com/path&&part?q=why?", r.cleaned)
+        val clean = "https://example.com/path&&part#anchor?&"
+        assertEquals(clean, cleaner.clean(clean).cleaned)
+    }
+
+    @Test fun `encoded referral keys respect the removal toggle`() {
+        val url = "https://example.com/?%72ef=campaign&keep=1"
+        assertEquals("https://example.com/?keep=1", cleaner.clean(url).cleaned)
+        val off = UrlCleaner(ruleSet, removeReferralMarketing = false)
+        assertEquals(url, off.clean(url).cleaned)
+        assertEquals("https://www.instagram.com/p/ABC/", off.clean("https://www.instagram.com/p/ABC/?dlrf=share").cleaned)
     }
 
     @Test fun `no change when url is clean`() {

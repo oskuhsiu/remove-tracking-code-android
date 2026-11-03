@@ -8,6 +8,8 @@ import app.urlcleaner.cleaner.UrlCleaningService
 import app.urlcleaner.data.HistoryRepository
 import app.urlcleaner.data.RulesRepository
 import app.urlcleaner.data.SettingsRepository
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Holds the repos as process-wide singletons. Deliberately simple — this app has
@@ -22,7 +24,8 @@ class UrlCleanerApp : Application() {
     lateinit var rulesRepo: RulesRepository
         private set
 
-    @Volatile var currentRuleSet: RuleSet = RuleSet(emptyList())
+    private var currentRuleSet: RuleSet? = null
+    private val rulesMutex = Mutex()
     private val redirectResolver = ThreadsShareUrlResolver()
 
     override fun onCreate() {
@@ -32,9 +35,18 @@ class UrlCleanerApp : Application() {
         rulesRepo = RulesRepository(this)
     }
 
-    fun cleanerFor(removeReferralMarketing: Boolean): UrlCleaningService =
+    suspend fun loadRules(forceReload: Boolean = false): RuleSet = rulesMutex.withLock {
+        val current = currentRuleSet
+        if (current != null && !forceReload) {
+            current
+        } else {
+            rulesRepo.load().ruleSet.also { currentRuleSet = it }
+        }
+    }
+
+    suspend fun cleanerFor(removeReferralMarketing: Boolean): UrlCleaningService =
         UrlCleaningService(
-            UrlCleaner(currentRuleSet, removeReferralMarketing),
+            UrlCleaner(loadRules(), removeReferralMarketing),
             redirectResolver,
         )
 }

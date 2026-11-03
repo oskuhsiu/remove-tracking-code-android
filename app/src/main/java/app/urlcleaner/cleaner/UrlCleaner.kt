@@ -101,7 +101,8 @@ class UrlCleaner(
     private fun stripQueryKeys(url: String, keyRegexes: List<Regex>): Pair<String, Int> {
         val qIdx = url.indexOf('?')
         if (qIdx < 0) return url to 0
-        val fIdx = url.indexOf('#', qIdx + 1)
+        val fIdx = url.indexOf('#')
+        if (fIdx >= 0 && fIdx < qIdx) return url to 0
         val beforeQuery = url.substring(0, qIdx)
         val queryEnd = if (fIdx >= 0) fIdx else url.length
         val queryStr = url.substring(qIdx + 1, queryEnd)
@@ -113,7 +114,10 @@ class UrlCleaner(
             if (param.isEmpty()) return@filter false
             val eq = param.indexOf('=')
             val key = if (eq >= 0) param.substring(0, eq) else param
-            val strip = keyRegexes.any { it.matches(key) }
+            // Match decoded names too, without re-encoding any retained query bytes.
+            // Keep the raw match for ClearURLs rules that explicitly include escapes.
+            val decodedKey = decode(key)
+            val strip = keyRegexes.any { it.matches(key) || it.matches(decodedKey) }
             if (strip) removed++
             !strip
         }
@@ -129,13 +133,17 @@ class UrlCleaner(
     }
 
     private fun tidy(url: String): String {
-        // Collapse artifacts left by rawRules: "?&" → "?", "&&" → "&", trailing "?" or "&".
-        var out = url
-        out = out.replace(Regex("\\?&+"), "?")
-        out = out.replace(Regex("&{2,}"), "&")
-        out = out.replace(Regex("\\?(?=#|$)"), "")
-        out = out.replace(Regex("&(?=#|$)"), "")
-        return out
+        // Remove empty query segments left by rawRules, without touching paths,
+        // fragments, or literal question marks inside retained parameter values.
+        val fragmentIndex = url.indexOf('#')
+        val fragment = if (fragmentIndex >= 0) url.substring(fragmentIndex) else ""
+        val beforeFragment = if (fragmentIndex >= 0) url.substring(0, fragmentIndex) else url
+        val queryIndex = beforeFragment.indexOf('?')
+        if (queryIndex < 0) return url
+        val query = beforeFragment.substring(queryIndex + 1)
+            .split('&').filter { it.isNotEmpty() }.joinToString("&")
+        return beforeFragment.substring(0, queryIndex) +
+            (if (query.isEmpty()) "" else "?$query") + fragment
     }
 
     private fun matchesAny(patterns: List<Regex>, url: String): Boolean =

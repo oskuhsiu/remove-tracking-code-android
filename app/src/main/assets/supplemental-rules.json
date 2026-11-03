@@ -1,5 +1,36 @@
 {
   "providers": {
+    "xStatusShareExtras": {
+      "urlPattern": "^https?://(?:[a-z0-9-]+\\.)*(?:x|twitter)\\.com(?::[0-9]+)?/(?:[^/?#]+/status|i/web/status)/[0-9]+(?:[/?#]|$)",
+      "rules": ["a", "(?:ref_?)?src", "s", "cn", "ref_url", "t"]
+    },
+    "instagramShareExtras": {
+      "urlPattern": "^https?://(?:[a-z0-9-]+\\.)*instagram\\.com(?::[0-9]+)?(?:[/?#]|$)",
+      "rules": [
+        "igshid", "igsh", "igsi", "ig_rid", "click_source",
+        "si", "stkn", "mdxt", "cplk", "obrf", "vrfl", "rpxt", "dlrf"
+      ]
+    },
+    "tiktokVideoShareExtras": {
+      "urlPattern": "^https?://(?:[a-z0-9-]+\\.)*tiktok\\.com(?::[0-9]+)?/@[^/?#]+/video/[0-9]+(?:[/?#]|$)",
+      "rules": [
+        "is_copy_url", "is_from_webapp", "sender_device", "sec_user_id",
+        "share_link_id", "share_app_id", "share_author_id", "share_region",
+        "social_share_type", "trackParams", "ug_btm", "web_id", "tt_from"
+      ]
+    },
+    "spotifyShareExtras": {
+      "urlPattern": "^https?://open\\.spotify\\.com(?::[0-9]+)?(?:[/?#]|$)",
+      "rules": ["si", "pi", "sp_cid", "dlsi"]
+    },
+    "redditPostShareExtras": {
+      "urlPattern": "^https?://(?:[a-z0-9-]+\\.)*reddit\\.com(?::[0-9]+)?/(?:r/[^/?#]+/)?comments/[^/?#]+(?:[/?#]|$)",
+      "rules": ["entry_point", "target_user", "post_index", "post_fullname"]
+    },
+    "youtubeEmbedShareExtras": {
+      "urlPattern": "^https?://(?:[a-z0-9-]+\\.)*(?:youtube\\.com|youtube-nocookie\\.com|youtubekids\\.com)(?::[0-9]+)?(?:[/?#]|$)",
+      "rules": ["embeds_referring_euri", "embeds_referring_origin", "source_ve_path"]
+    },
     "threads": {
       "urlPattern": "^https?://(?:[a-z0-9-]+\\.)*?threads\\.(com|net)",
       "completeProvider": false,

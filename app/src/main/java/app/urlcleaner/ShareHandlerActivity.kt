@@ -33,10 +33,6 @@ class ShareHandlerActivity : ComponentActivity() {
         }
 
         lifecycleScope.launch {
-            // Ensure rules are loaded (first launch from a share intent may race MainActivity).
-            if (app.currentRuleSet.providers.isEmpty()) {
-                app.currentRuleSet = app.rulesRepo.load().ruleSet
-            }
             val settings = app.settingsRepo.settings.first()
 
             val cleaner = app.cleanerFor(settings.removeReferralMarketing)
